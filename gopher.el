@@ -79,8 +79,9 @@
 
 (defun gopher-refresh-current-address ()
   (interactive)
-  (gopher-goto-url (car gopher-current-address)
-                   (cadr gopher-current-address)
+  (gopher-goto-url (nth 0 gopher-current-address)
+                   (nth 1 gopher-current-address)
+                   (nth 2 gopher-current-address)
                    nil nil t))
 
 (defun gopher-get-content-type (line-data)
@@ -104,32 +105,34 @@
 (defun gopher (address)
   (interactive "MGopher URL: ")
   (let* ((split-address (split-string (replace-regexp-in-string "^gopher:\/\/" "" address) "/"))
-         (url (car split-address))
+         (split-url (split-string (car split-address) ":"))
+	 (hostname (car split-url))
+	 (port (nth 1 split-url))
          (selector (mapconcat 'identity (cdr split-address) "/")))
     (if (< (length selector) 1)
-        (gopher-goto-url url nil)
-      (gopher-goto-url url (concat "/" selector)))))
+        (gopher-goto-url hostname port nil)
+      (gopher-goto-url hostname port selector))))
 
-(defun gopher-goto-url (&optional url selector content-type
+(defun gopher-goto-url (&optional hostname port selector content-type
                                   search-argument no-history)
   (interactive)
   (if (get-buffer gopher-buffer-name)
       (kill-buffer gopher-buffer-name))
   (if (not content-type)
       (setq content-type 'directory-listing))
-  (unless no-history (gopher-history-new url selector))
+  (unless no-history (gopher-history-new hostname port selector))
   (setq gopher-network-args (append (list
                                      :name "gopher"
                                      :buffer gopher-buffer-name
-                                     :host url
-                                     :service 70
+                                     :host hostname
+                                     :service (string-to-number port)
                                      :filter (gopher-get-matching "filter" content-type)
                                      :sentinel (gopher-get-matching "sentinel" content-type))
                                     (gopher-get-extra-network-args content-type)))
   (setq gopher-current-network-process (apply 'make-network-process gopher-network-args)
         gopher-line-fragment nil)
   (process-send-string gopher-current-network-process (gopher-prepare-request selector search-argument))
-  (gopher-prepare-buffer url selector))
+  (gopher-prepare-buffer hostname port selector))
 
 (defun gopher-prepare-request (selector search-argument)
   (cond
@@ -137,24 +140,28 @@
    (selector (format "%s\r\n" selector))
    (t "\r\n")))
 
-(defun gopher-prepare-buffer (url selector)
+(defun gopher-prepare-buffer (hostname port selector)
   (set-window-buffer (selected-window) gopher-buffer-name)
   (with-current-buffer gopher-buffer-name
     (gopher-mode)
-    (setq gopher-current-address (list url selector)
+    (setq gopher-current-address (list hostname port selector)
           gopher-current-data nil
           line-spacing 3)
     (insert "\n\n")))
 
 (defun gopher-format-address (address)
-  (let ((url (nth 0 address))
-        (selector (nth 1 address)))
+  (let ((hostname (nth 0 address))
+        (port (nth 1 address))
+        (selector (nth 2 address)))
     (cond
      ((and selector
            (not (zerop (length selector)))
-           (string= "/" (substring selector 0 1))) (format "%s%s" url selector))
-     (selector (format "%s/%s" url selector))
-     (t url))))
+           (string= "/" (substring selector 0 1)))
+      (format "%s:%s%s" hostname port selector))
+     (selector
+      (format "%s:%s/%s" hostname port selector))
+     (t
+      (format "%s:%s" hostname port)))))
 
 (defun gopher-process-line (line)
   (let* ((lineparts (split-string line "\t"))
@@ -244,13 +251,15 @@
               (insert-image (create-image
                              gopher-current-data image-type 'data))
               (gopher-finish-buffer))
-          (error (format "Could not determine image type for %s" gopher-current-address)))))))
+          (error "Could not determine image type for %s"
+		 (gopher-format-address gopher-current-address)))))))
 
 (defun gopher-finish-buffer ()
   (setq buffer-read-only t)
   (goto-char (point-min))
   (gopher-remove-dos-eol)
-  (message "Loaded %s." (gopher-format-address gopher-current-address)))
+  (message "Loaded %s."
+	   (gopher-format-address gopher-current-address)))
 
 (defun gopher-goto-url-at-point (&optional arg)
   (interactive)
@@ -260,21 +269,24 @@
     (if (eq content-type 'search-query)
         (call-interactively 'gopher-goto-search)
       (gopher-goto-url (getf properties :hostname)
+                       (getf properties :port)
                        (getf properties :selector)
                        content-type))))
 
 (defun gopher-goto-parent (&optional arg)
   (interactive)
   (let* ((address gopher-current-address)
-         (url (nth 0 address))
-         (selector (nth 1 address)))
-  (gopher-goto-url url (gopher-selector-parent selector))))
+         (hostname (nth 0 address))
+         (port (nth 1 address))
+         (selector (nth 2 address)))
+  (gopher-goto-url hostname port (gopher-selector-parent selector))))
 
 (defun gopher-goto-search (search-argument)
   (interactive "MSearch argument: ")
   (let* ((properties (text-properties-at (point)))
          (content-type (gopher-get-content-type properties)))
     (gopher-goto-url (getf properties :hostname)
+		     (getf properties :port)
                      (getf properties :selector)
                      content-type search-argument)))
 
@@ -323,16 +335,17 @@ location."
       (setq gopher-history-ring-pointer Nth-history-element))
     (car Nth-history-element)))
 
-(defun gopher-history-new (url selector &optional replace)
-  "Make (cons URL SELECTOR) the latest item in gopher's history.
-Set `gopher-history-ring-pointer' to point to it.
-Optional third argument REPLACE non-nil means that URL will
-replace the front of the history ring, rather than being
-added to the list."
-  (when (and (equal url (caar gopher-history-ring))
-             (equal selector (cdar gopher-history-ring)))
-    (setq replace t))
-  (let ((entry (cons url selector)))
+(defun gopher-history-new (hostname port selector &optional replace)
+  "Make (cons HOSTNAME PORT SELECTOR) the latest item in gopher's history.
+Set `gopher-history-ring-pointer' to point to it. Optional third
+argument REPLACE non-nil means that this item will replace the
+front of the history ring, rather than being added to the list."
+  (let ((address (car gopher-history-ring)))
+    (when (and (equal hostname (nth 0 address))
+	       (equal port (nth 1 address))
+	       (equal selector (nth 2 address)))
+      (setq replace t)))
+  (let ((entry (list hostname port selector)))
     (if (and replace gopher-history-ring)
         (setcar gopher-history-ring entry)
       (push entry gopher-history-ring)
@@ -349,9 +362,10 @@ With optional argument STEP, an integer, go that many steps.
 If STEP is negative, move forward through the history."
   (interactive "p")
   (unless step (setq step 1))
-  (let ((current-item (gopher-history-current-item step)))
-    (gopher-goto-url (car current-item)
-                     (cdr current-item)
+  (let ((address (gopher-history-current-item step)))
+    (gopher-goto-url (nth 0 address)
+		     (nth 1 address)
+		     (nth 2 address)
                      nil nil t)))
 
 (defalias 'gopher-history-backwards 'gopher-history)
@@ -390,6 +404,7 @@ If STEP is negative, move backward through the history"
   (let* ((properties (text-properties-at (point)))
          (string (mapconcat 'identity (list
                                        (getf properties :hostname)
+				       (getf properties :port)
                                        (getf properties :selector)) "/")))
     (kill-new string)
     (message string)))

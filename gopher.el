@@ -120,6 +120,8 @@
       (kill-buffer gopher-buffer-name))
   (if (not content-type)
       (setq content-type 'directory-listing))
+  (if (not port)
+      (setq port "70"))
   (unless no-history (gopher-history-new hostname port selector))
   (setq gopher-network-args (append (list
                                      :name "gopher"

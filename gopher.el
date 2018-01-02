@@ -35,14 +35,17 @@
 ;; and <F> forwards through the history.
 
 (require 'cl)
+(require 'shr)
 
 (defconst gopher-available-content-types
   '(("0" . plain-text)
     ("1" . directory-listing)
     ("i" . informational-message)
     ("g" . gif)
+    ("h" . html)
     ("I" . generic-image)
-    ("7" . search-query)))
+    ("7" . search-query)
+    ("w" . write)))
 
 (defconst gopher-extra-network-arguments
   '((gif . (:coding binary))
@@ -52,7 +55,9 @@
   '((directory-listing . font-lock-builtin-face)
     (informational-message . font-lock-comment-face)
     (gif . font-lock-variable-name-face)
-    (generic-image . font-lock-string-face)))
+    (generic-image . font-lock-string-face)
+    (html . font-lock-type-name-face)
+    (write . font-lock-warning-face)))
 
 (defvar gopher-buffer-name "*gopher*")
 
@@ -234,6 +239,12 @@
 (defun gopher-sentinel-plain-text (proc msg)
   (when (string= msg "connection broken by remote peer\n")
     (with-current-buffer gopher-buffer-name
+      (gopher-finish-buffer))))
+
+(defun gopher-sentinel-html (proc msg)
+  (when (string= msg "connection broken by remote peer\n")
+    (with-current-buffer gopher-buffer-name
+      (shr-render-region (point-min) (point-max) (current-buffer))
       (gopher-finish-buffer))))
 
 (defun gopher-sentinel-gif (proc msg)

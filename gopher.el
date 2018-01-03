@@ -358,6 +358,10 @@ MSG is the status returned by the process, PROC."
            (browse-url (replace-regexp-in-string "^/?URL:" "" (cl-getf properties :selector))))
           ((eq content-type 'search-query)
            (call-interactively 'gopher-goto-search))
+	  ((eq content-type 'write)
+	   (gopher-goto-write (cl-getf properties :hostname)
+			      (cl-getf properties :port)
+			      (cl-getf properties :selector)))
           (t (gopher-goto-url (cl-getf properties :hostname)
                               (cl-getf properties :port)
                               (cl-getf properties :selector)
@@ -382,6 +386,7 @@ MSG is the status returned by the process, PROC."
                      (cl-getf properties :selector)
                      content-type search-argument)))
 
+<<<<<<< HEAD
 (defun gopher-bookmark-handler (record)
   "Go to a gopher bookmark RECORD."
   (gopher-goto-address (bookmark-prop-get record 'address))
@@ -392,6 +397,28 @@ MSG is the status returned by the process, PROC."
   `((address . ,gopher-current-address)
     (location . ,(gopher-format-address gopher-current-address))
     (handler . gopher-bookmark-handler)))
+=======
+(defun gopher-goto-write (hostname port selector)
+  (set-window-buffer (selected-window) (get-buffer-create gopher-buffer-name))
+  (setq buffer-read-only nil)
+  (erase-buffer)
+  (with-current-buffer gopher-buffer-name
+    (gopher-edit-mode)
+    (setq gopher-current-address (list hostname port selector))))
+
+(defun gopher-write ()
+  (interactive)
+  (let* ((address gopher-current-address)
+         (hostname (nth 0 address))
+         (port (nth 1 address))
+         (selector (concat (nth 2 address) "\r\n"
+			   (buffer-string))))
+    (gopher-goto-url hostname port selector nil nil t)))
+
+(define-derived-mode gopher-edit-mode text-mode "Gopher Edit"
+  (set (make-local-variable 'gopher-current-address) nil)
+  (local-set-key (kbd "C-c C-c") 'gopher-write))
+>>>>>>> Support for gopher-write
 
 (define-derived-mode gopher-mode fundamental-mode "Gopher"
   (set (make-local-variable 'gopher-current-data) nil)

@@ -8,7 +8,7 @@ your name and/or nick along with your email on your header
 line, a link to your repository (if applicable) and any
 supplementary information you'd care to share below.
 
-* Matthew Snyder (ardekantur) <matthew.c.snydere@gmail.com>
+* Matthew Snyder (ardekantur) <msnyder@msnyder.info>
 
   - [[https://github.com/ardekantur/gopher.el][ardekantur's repository]]
   - Primary author

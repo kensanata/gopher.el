@@ -10,10 +10,15 @@ supplementary information you'd care to share below.
 
 * Matthew Snyder (ardekantur) <matthew.c.snydere@gmail.com>
 
-  - [[http://github.com/ardekantur/gopher.el][ardekantur's repository]]
+  - [[https://github.com/ardekantur/gopher.el][ardekantur's repository]]
   - Primary author
 
 * Ivy Foster (escondida, joyfulgirl) <joyfulgirl@archlinux.us>
 
-  - [[http://github.com/escondida/gopher.el][escondida's repository]]
+  - [[https://github.com/escondida/gopher.el][escondida's repository]]
   - History support
+
+* Alex Schroeder (kensanata) <alex@gnu.org>
+
+  - [[https://github.com/kensanata/gopher.el][kensanata's repository]]
+  - non-standard ports

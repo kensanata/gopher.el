@@ -47,9 +47,16 @@
     ("7" . search-query)
     ("w" . write)))
 
-(defconst gopher-extra-network-arguments
-  '((gif . (:coding binary))
-    (generic-image . (:coding binary))))
+(defconst gopher-coding
+  '((gif binary binary)
+    (generic-image binary binary)
+    (t utf-8 utf-8))
+  "Encoding to use for the process based on content-type.
+This is an alist with elements of the form
+\(CONTENT-TYPE DECODING ENCODING) where CONTENT-TYPE is on of
+the values of `gopher-available-content-types' and DECODING and ENCODING
+are coding systems suitable for `set-process-coding-system'.
+The CONTENT-TYPE t is the default when no match is found.")
 
 (defconst gopher-faces
   '((directory-listing . font-lock-builtin-face)
@@ -101,12 +108,6 @@
         (cdr face)
       nil)))
 
-(defun gopher-get-extra-network-args (content-type)
-  (let ((args (assoc content-type gopher-extra-network-arguments)))
-    (if args
-        (cdr args)
-      nil)))
-
 (defun gopher (address)
   (interactive "MGopher URL: ")
   (let* ((split-address (split-string (replace-regexp-in-string "^gopher:\/\/" "" address) "/"))
@@ -128,18 +129,29 @@
   (if (not port)
       (setq port "70"))
   (unless no-history (gopher-history-new hostname port selector))
-  (setq gopher-network-args (append (list
-                                     :name "gopher"
-                                     :buffer gopher-buffer-name
-                                     :host hostname
-                                     :service (string-to-number port)
-                                     :filter (gopher-get-matching "filter" content-type)
-                                     :sentinel (gopher-get-matching "sentinel" content-type))
-                                    (gopher-get-extra-network-args content-type)))
-  (setq gopher-current-network-process (apply 'make-network-process gopher-network-args)
-        gopher-line-fragment nil)
-  (process-send-string gopher-current-network-process (gopher-prepare-request selector search-argument))
+  (let* ((args (append (list
+			"gopher"
+			(get-buffer-create gopher-buffer-name)
+			hostname
+			(string-to-number port)
+			:type (if gopher-tls-mode 'tls 'plain))))
+	 (process (apply 'open-network-stream args)))
+    (set-process-sentinel process (gopher-get-matching "sentinel" content-type))
+    (set-process-filter process (gopher-get-matching "filter" content-type))
+    (apply 'set-process-coding-system process
+	   (cdr (or (assoc content-type gopher-coding)
+		    (assoc t gopher-coding))))
+    (process-send-string process (gopher-prepare-request selector search-argument)))
   (gopher-prepare-buffer hostname port selector))
+
+(define-minor-mode gopher-tls-mode
+  "Toggle TLS for Gopher."
+  nil " TLS")
+
+(define-globalized-minor-mode gopher-global-tls-mode gopher-tls-mode
+  (lambda ()
+    (when (eq major-mode 'gopher-mode)
+      (gopher-tls-mode 1))))
 
 (defun gopher-prepare-request (selector search-argument)
   (cond
@@ -229,7 +241,7 @@
 (defun gopher-sentinel-directory-listing (proc msg)
   (when (string= msg "connection broken by remote peer\n")
     (with-current-buffer gopher-buffer-name
-      (let* ((lines (split-string gopher-current-data "\r\n")))
+      (let* ((lines (split-string gopher-current-data "\n")))
         (mapc (lambda (line) (insert (gopher-display-line line))) lines))
       (gopher-finish-buffer))))
 
@@ -407,6 +419,7 @@ If STEP is negative, move backward through the history"
   (define-key gopher-mode-map "r" 'gopher-refresh-current-address)
   (define-key gopher-mode-map "B" 'gopher-history-backwards)
   (define-key gopher-mode-map "F" 'gopher-history-forward)
+  (define-key gopher-mode-map "T" 'gopher-tls-mode)
   (define-key gopher-mode-map "q" 'quit-window))
 
 (gopher-define-keymaps)

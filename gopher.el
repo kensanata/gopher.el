@@ -128,7 +128,7 @@ The CONTENT-TYPE t is the default when no match is found.")
       (setq content-type 'directory-listing))
   (if (not port)
       (setq port "70"))
-  (unless no-history (gopher-history-new hostname port selector))
+  (unless no-history (gopher-history-new hostname port selector gopher-tls-mode))
   (let* ((args (append (list
 			"gopher"
 			(get-buffer-create gopher-buffer-name)
@@ -146,12 +146,7 @@ The CONTENT-TYPE t is the default when no match is found.")
 
 (define-minor-mode gopher-tls-mode
   "Toggle TLS for Gopher."
-  nil " TLS")
-
-(define-globalized-minor-mode gopher-global-tls-mode gopher-tls-mode
-  (lambda ()
-    (when (eq major-mode 'gopher-mode)
-      (gopher-tls-mode 1))))
+  nil " TLS" :global t)
 
 (defun gopher-prepare-request (selector search-argument)
   (cond
@@ -360,9 +355,9 @@ location."
       (setq gopher-history-ring-pointer Nth-history-element))
     (car Nth-history-element)))
 
-(defun gopher-history-new (hostname port selector &optional replace)
-  "Make (cons HOSTNAME PORT SELECTOR) the latest item in gopher's history.
-Set `gopher-history-ring-pointer' to point to it. Optional third
+(defun gopher-history-new (hostname port selector type &optional replace)
+  "Make (list HOSTNAME PORT SELECTOR TYPE) the latest item in gopher's history.
+Set `gopher-history-ring-pointer' to point to it. Optional
 argument REPLACE non-nil means that this item will replace the
 front of the history ring, rather than being added to the list."
   (let ((address (car gopher-history-ring)))
@@ -370,7 +365,7 @@ front of the history ring, rather than being added to the list."
 	       (equal port (nth 1 address))
 	       (equal selector (nth 2 address)))
       (setq replace t)))
-  (let ((entry (list hostname port selector)))
+  (let ((entry (list hostname port selector type)))
     (if (and replace gopher-history-ring)
         (setcar gopher-history-ring entry)
       (push entry gopher-history-ring)
@@ -383,11 +378,14 @@ front of the history ring, rather than being added to the list."
 (defun gopher-history (&optional step)
   "Walk back through gopher's history.
 
-With optional argument STEP, an integer, go that many steps.
-If STEP is negative, move forward through the history."
+With optional argument STEP, an integer, go that many steps. If
+STEP is negative, move forward through the history. In case the
+TLS mode is different for this history item, bind it locally
+without changing the global mode."
   (interactive "p")
   (unless step (setq step 1))
-  (let ((address (gopher-history-current-item step)))
+  (let* ((address (gopher-history-current-item step))
+	 (gopher-tls-mode (nth 3 address)))
     (gopher-goto-url (nth 0 address)
 		     (nth 1 address)
 		     (nth 2 address)

@@ -408,7 +408,6 @@ If STEP is negative, move backward through the history"
   (define-key gopher-mode-map "\r" 'gopher-goto-url-at-point)
   (define-key gopher-mode-map "n" 'gopher-next-line)
   (define-key gopher-mode-map "p" 'gopher-previous-line)
-  (define-key gopher-mode-map "g" 'gopher)
   (define-key gopher-mode-map "\t" (gopher-navigate next-line directory-listing))
   (define-key gopher-mode-map "\M-\t" (gopher-navigate previous-line directory-listing))
   (define-key gopher-mode-map "]" (gopher-navigate next-line plain-text))
@@ -417,6 +416,10 @@ If STEP is negative, move backward through the history"
   (define-key gopher-mode-map "r" 'gopher-refresh-current-address)
   (define-key gopher-mode-map "B" 'gopher-history-backwards)
   (define-key gopher-mode-map "F" 'gopher-history-forward)
+  (define-key gopher-mode-map "l" 'gopher-history-backwards)
+  (define-key gopher-mode-map "r" 'gopher-history-forward)
+  (define-key gopher-mode-map "g" 'gopher-refresh-current-address)
+  (define-key gopher-mode-map "G" 'gopher)
   (define-key gopher-mode-map "T" 'gopher-tls-mode)
   (define-key gopher-mode-map "q" 'quit-window))
 

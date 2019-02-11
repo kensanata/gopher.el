@@ -18,6 +18,7 @@
 ;; Author: Matthew Snyder <matthew.c.snyder@gmail.com>
 ;;         and the gopher.el authors (see AUTHORS.org)
 ;; URL: http://github.com/ardekantur/gopher.el
+;; Package-Version: 20190211.1742
 ;; Version: 0.0.2
 
 ;; This file is not part of GNU Emacs.
@@ -34,7 +35,7 @@
 ;; There is primitive history support. <B> navigates backwards
 ;; and <F> forwards through the history.
 
-(require 'cl)
+(require 'cl-lib)
 (require 'shr)
 
 (defconst gopher-available-content-types
@@ -97,7 +98,7 @@ The CONTENT-TYPE t is the default when no match is found.")
                    nil nil t))
 
 (defun gopher-get-content-type (line-data)
-  (let ((content-type (assoc (getf line-data :item-type) gopher-available-content-types)))
+  (let ((content-type (assoc (cl-getf line-data :item-type) gopher-available-content-types)))
     (if content-type
         (cdr content-type)
       nil)))
@@ -146,7 +147,7 @@ The CONTENT-TYPE t is the default when no match is found.")
 
 (define-minor-mode gopher-tls-mode
   "Toggle TLS for Gopher."
-  nil " TLS" :global t)
+  nil " TLS" :global t :require 'gopher)
 
 (defun gopher-prepare-request (selector search-argument)
   (cond
@@ -224,9 +225,9 @@ The CONTENT-TYPE t is the default when no match is found.")
 (defun gopher-format-line (line-data)
   (let ((content-type (gopher-get-content-type line-data)))
     (if (and content-type (gopher-get-face content-type))
-        (propertize (getf line-data :display-string)
+        (propertize (cl-getf line-data :display-string)
                     'face (gopher-get-face content-type))
-      (getf line-data :display-string))))
+      (cl-getf line-data :display-string))))
 
 (defun gopher-sentinel (proc msg)
   (when (string= msg "connection broken by remote peer\n")
@@ -288,9 +289,9 @@ The CONTENT-TYPE t is the default when no match is found.")
         (content-type (gopher-get-content-type properties)))
     (if (eq content-type 'search-query)
         (call-interactively 'gopher-goto-search)
-      (gopher-goto-url (getf properties :hostname)
-                       (getf properties :port)
-                       (getf properties :selector)
+      (gopher-goto-url (cl-getf properties :hostname)
+                       (cl-getf properties :port)
+                       (cl-getf properties :selector)
                        content-type))))
 
 (defun gopher-goto-parent (&optional arg)
@@ -305,9 +306,9 @@ The CONTENT-TYPE t is the default when no match is found.")
   (interactive "MSearch argument: ")
   (let* ((properties (text-properties-at (point)))
          (content-type (gopher-get-content-type properties)))
-    (gopher-goto-url (getf properties :hostname)
-		     (getf properties :port)
-                     (getf properties :selector)
+    (gopher-goto-url (cl-getf properties :hostname)
+		     (cl-getf properties :port)
+                     (cl-getf properties :selector)
                      content-type search-argument)))
 
 (define-derived-mode gopher-mode fundamental-mode "Gopher"
@@ -321,12 +322,12 @@ The CONTENT-TYPE t is the default when no match is found.")
 (defalias 'gopher-previous-line 'previous-line)
 
 (defun gopher-pop-last (list)
-  (remove-if (lambda (x) t) list :count 1 :from-end t))
+  (cl-remove-if (lambda (x) t) list :count 1 :from-end t))
 
 (defun gopher-selector-parent (selector)
   (mapconcat 'identity (gopher-pop-last (split-string selector "/")) "/"))
 
-(defun w3m-open-this-url-in-gopher ()
+(defun gopher-open-w3m-url ()
   "Open this URL in Gopher."
   (interactive)
   (gopher (w3m-anchor)))
@@ -430,9 +431,9 @@ If STEP is negative, move backward through the history"
   (move-beginning-of-line nil)
   (let* ((properties (text-properties-at (point)))
          (string (mapconcat 'identity (list
-                                       (getf properties :hostname)
-				       (getf properties :port)
-                                       (getf properties :selector)) "/")))
+                                       (cl-getf properties :hostname)
+				       (cl-getf properties :port)
+                                       (cl-getf properties :selector)) "/")))
     (kill-new string)
     (message string)))
 

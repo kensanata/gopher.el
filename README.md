@@ -2,6 +2,8 @@
 
 `gopher.el` is an Emacs mode to browse Gopher.
 
+![gopher.el screenshot](screenshot.jpg)
+
 ## Features
 
 - GIF and auto-detected image support.

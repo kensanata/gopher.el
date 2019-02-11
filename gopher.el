@@ -53,7 +53,7 @@
     (t utf-8 utf-8))
   "Encoding to use for the process based on content-type.
 This is an alist with elements of the form
-\(CONTENT-TYPE DECODING ENCODING) where CONTENT-TYPE is on of
+\(CONTENT-TYPE DECODING ENCODING) where CONTENT-TYPE is one of
 the values of `gopher-available-content-types' and DECODING and ENCODING
 are coding systems suitable for `set-process-coding-system'.
 The CONTENT-TYPE t is the default when no match is found.")

@@ -47,9 +47,16 @@
     ("7" . search-query)
     ("w" . write)))
 
-(defconst gopher-extra-network-arguments
-  '((gif . (:coding binary))
-    (generic-image . (:coding binary))))
+(defconst gopher-coding
+  '((gif binary binary)
+    (generic-image binary binary)
+    (t utf-8 utf-8))
+  "Encoding to use for the process based on content-type.
+This is an alist with elements of the form
+\(CONTENT-TYPE DECODING ENCODING) where CONTENT-TYPE is one of
+the values of `gopher-available-content-types' and DECODING and ENCODING
+are coding systems suitable for `set-process-coding-system'.
+The CONTENT-TYPE t is the default when no match is found.")
 
 (defconst gopher-faces
   '((directory-listing . font-lock-builtin-face)
@@ -101,12 +108,6 @@
         (cdr face)
       nil)))
 
-(defun gopher-get-extra-network-args (content-type)
-  (let ((args (assoc content-type gopher-extra-network-arguments)))
-    (if args
-        (cdr args)
-      nil)))
-
 (defun gopher (address)
   (interactive "MGopher URL: ")
   (let* ((split-address (split-string (replace-regexp-in-string "^gopher:\/\/" "" address) "/"))
@@ -127,19 +128,25 @@
       (setq content-type 'directory-listing))
   (if (not port)
       (setq port "70"))
-  (unless no-history (gopher-history-new hostname port selector))
-  (setq gopher-network-args (append (list
-                                     :name "gopher"
-                                     :buffer gopher-buffer-name
-                                     :host hostname
-                                     :service (string-to-number port)
-                                     :filter (gopher-get-matching "filter" content-type)
-                                     :sentinel (gopher-get-matching "sentinel" content-type))
-                                    (gopher-get-extra-network-args content-type)))
-  (setq gopher-current-network-process (apply 'make-network-process gopher-network-args)
-        gopher-line-fragment nil)
-  (process-send-string gopher-current-network-process (gopher-prepare-request selector search-argument))
+  (unless no-history (gopher-history-new hostname port selector gopher-tls-mode))
+  (let* ((args (append (list
+			"gopher"
+			(get-buffer-create gopher-buffer-name)
+			hostname
+			(string-to-number port)
+			:type (if gopher-tls-mode 'tls 'plain))))
+	 (process (apply 'open-network-stream args)))
+    (set-process-sentinel process (gopher-get-matching "sentinel" content-type))
+    (set-process-filter process (gopher-get-matching "filter" content-type))
+    (apply 'set-process-coding-system process
+	   (cdr (or (assoc content-type gopher-coding)
+		    (assoc t gopher-coding))))
+    (process-send-string process (gopher-prepare-request selector search-argument)))
   (gopher-prepare-buffer hostname port selector))
+
+(define-minor-mode gopher-tls-mode
+  "Toggle TLS for Gopher."
+  nil " TLS" :global t)
 
 (defun gopher-prepare-request (selector search-argument)
   (cond
@@ -229,7 +236,7 @@
 (defun gopher-sentinel-directory-listing (proc msg)
   (when (string= msg "connection broken by remote peer\n")
     (with-current-buffer gopher-buffer-name
-      (let* ((lines (split-string gopher-current-data "\r\n")))
+      (let* ((lines (split-string gopher-current-data "\n")))
         (mapc (lambda (line) (insert (gopher-display-line line))) lines))
       (gopher-finish-buffer))))
 
@@ -348,9 +355,9 @@ location."
       (setq gopher-history-ring-pointer Nth-history-element))
     (car Nth-history-element)))
 
-(defun gopher-history-new (hostname port selector &optional replace)
-  "Make (cons HOSTNAME PORT SELECTOR) the latest item in gopher's history.
-Set `gopher-history-ring-pointer' to point to it. Optional third
+(defun gopher-history-new (hostname port selector type &optional replace)
+  "Make (list HOSTNAME PORT SELECTOR TYPE) the latest item in gopher's history.
+Set `gopher-history-ring-pointer' to point to it. Optional
 argument REPLACE non-nil means that this item will replace the
 front of the history ring, rather than being added to the list."
   (let ((address (car gopher-history-ring)))
@@ -358,7 +365,7 @@ front of the history ring, rather than being added to the list."
 	       (equal port (nth 1 address))
 	       (equal selector (nth 2 address)))
       (setq replace t)))
-  (let ((entry (list hostname port selector)))
+  (let ((entry (list hostname port selector type)))
     (if (and replace gopher-history-ring)
         (setcar gopher-history-ring entry)
       (push entry gopher-history-ring)
@@ -371,11 +378,14 @@ front of the history ring, rather than being added to the list."
 (defun gopher-history (&optional step)
   "Walk back through gopher's history.
 
-With optional argument STEP, an integer, go that many steps.
-If STEP is negative, move forward through the history."
+With optional argument STEP, an integer, go that many steps. If
+STEP is negative, move forward through the history. In case the
+TLS mode is different for this history item, bind it locally
+without changing the global mode."
   (interactive "p")
   (unless step (setq step 1))
-  (let ((address (gopher-history-current-item step)))
+  (let* ((address (gopher-history-current-item step))
+	 (gopher-tls-mode (nth 3 address)))
     (gopher-goto-url (nth 0 address)
 		     (nth 1 address)
 		     (nth 2 address)
@@ -410,6 +420,7 @@ If STEP is negative, move backward through the history"
   (define-key gopher-mode-map "r" 'gopher-history-forward)
   (define-key gopher-mode-map "g" 'gopher-refresh-current-address)
   (define-key gopher-mode-map "G" 'gopher)
+  (define-key gopher-mode-map "T" 'gopher-tls-mode)
   (define-key gopher-mode-map "q" 'quit-window))
 
 (gopher-define-keymaps)

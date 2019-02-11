@@ -46,7 +46,7 @@ use to open Gopher links in w3m.
 ## Contributing
 
 The source code may be forked, and issues may be filed, by visiting
-=gopher.el='s [repository][].
+gopher.el's [repository][].
 
 [repository]: https://github.com/msnyder-info/gopher.el
 
@@ -60,4 +60,4 @@ The source code may be forked, and issues may be filed, by visiting
   port configuration.
 
 [msnyder-info]: https://github.com/msnyder.info
-[escondia]: https://github.com/escondida/gopher.el
+[escondida]: https://github.com/escondida/gopher.el

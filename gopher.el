@@ -261,11 +261,15 @@ Continue concatenating.  PROC is the parent process."
       (cl-getf line-data :display-string))))
 
 (defun gopher-sentinel (proc msg)
+  "Process sentinel for the network connection to the server.
+MSG is the status returned by the process, PROC."
   (when (string= msg "connection broken by remote peer\n")
     (with-current-buffer gopher-buffer-name
       (gopher-finish-buffer))))
 
 (defun gopher-sentinel-directory-listing (proc msg)
+  "Process sentinel for directory listings.
+MSG is the status returned by the process, PROC."
   (when (string= msg "connection broken by remote peer\n")
     (with-current-buffer gopher-buffer-name
       (let* ((lines (split-string gopher-current-data "\n")))
@@ -276,17 +280,23 @@ Continue concatenating.  PROC is the parent process."
 (defalias 'gopher-filter-search-query 'gopher-filter-directory-listing)
 
 (defun gopher-sentinel-plain-text (proc msg)
+  "Process sentinel for plain text.
+MSG is the status returned by the process, PROC."
   (when (string= msg "connection broken by remote peer\n")
     (with-current-buffer gopher-buffer-name
       (gopher-finish-buffer))))
 
 (defun gopher-sentinel-html (proc msg)
+  "Process sentinel for HTML content.
+MSG is the status returned by the process, PROC."
   (when (string= msg "connection broken by remote peer\n")
     (with-current-buffer gopher-buffer-name
       (shr-render-region (point-min) (point-max) (current-buffer))
       (gopher-finish-buffer))))
 
 (defun gopher-sentinel-gif (proc msg)
+  "Process sentinel for GIF data.
+MSG is the status returned by the process, PROC."
   (when (string= msg "connection broken by remote peer\n")
     (with-current-buffer gopher-buffer-name
       (insert "     ")
@@ -294,6 +304,8 @@ Continue concatenating.  PROC is the parent process."
       (gopher-finish-buffer))))
 
 (defun gopher-sentinel-generic-image (proc msg)
+  "Process sentinel for generic image data.
+MSG is the status returned by the process, PROC."
   (when (string= msg "connection broken by remote peer\n")
     (with-current-buffer gopher-buffer-name
       (let ((image-type (image-type-from-data gopher-current-data)))
@@ -307,6 +319,7 @@ Continue concatenating.  PROC is the parent process."
 		 (gopher-format-address gopher-current-address)))))))
 
 (defun gopher-finish-buffer ()
+  "Finalize the buffer for the user to interact with."
   (setq buffer-read-only t)
   (goto-char (point-min))
   (gopher-remove-dos-eol)
@@ -314,6 +327,7 @@ Continue concatenating.  PROC is the parent process."
 	   (gopher-format-address gopher-current-address)))
 
 (defun gopher-goto-url-at-point (&optional arg)
+  "Navigate to the URL at point, or the URL contained in ARG, if present."
   (interactive)
   (move-beginning-of-line nil)
   (let* ((properties (text-properties-at (point)))
@@ -326,6 +340,7 @@ Continue concatenating.  PROC is the parent process."
                        content-type))))
 
 (defun gopher-goto-parent (&optional arg)
+  "Navigate to the parent of the current address, or ARG, if present."
   (interactive)
   (let* ((address gopher-current-address)
          (hostname (nth 0 address))
@@ -334,6 +349,7 @@ Continue concatenating.  PROC is the parent process."
   (gopher-goto-url hostname port (gopher-selector-parent selector))))
 
 (defun gopher-goto-search (search-argument)
+  "Make a request to the server with the string SEARCH-ARGUMENT."
   (interactive "MSearch argument: ")
   (let* ((properties (text-properties-at (point)))
          (content-type (gopher-get-content-type properties)))
@@ -353,9 +369,12 @@ Continue concatenating.  PROC is the parent process."
 (defalias 'gopher-previous-line 'previous-line)
 
 (defun gopher-pop-last (list)
+  "Pop the last item from LIST."
   (cl-remove-if (lambda (x) t) list :count 1 :from-end t))
 
 (defun gopher-selector-parent (selector)
+  "Return the parent selector of SELECTOR.
+Unreliable, e.g. foo.com:70/1/bar becomes foo.com:70/1/, which is useless."
   (mapconcat 'identity (gopher-pop-last (split-string selector "/")) "/"))
 
 (defun gopher-open-w3m-url ()
@@ -364,6 +383,7 @@ Continue concatenating.  PROC is the parent process."
   (gopher (w3m-anchor)))
 
 (defmacro gopher-navigate (direction content-type)
+  "Move the cursor to the next (or previous depending on DIRECTION) line with the CONTENT-TYPE."
   `(defun ,(intern (concat "gopher-" (symbol-name direction) "-" (symbol-name content-type))) ()
      (interactive)
      (,direction)
@@ -389,7 +409,7 @@ location."
 
 (defun gopher-history-new (hostname port selector type &optional replace)
   "Make (list HOSTNAME PORT SELECTOR TYPE) the latest item in gopher's history.
-Set `gopher-history-ring-pointer' to point to it. Optional
+Set `gopher-history-ring-pointer' to point to it.  Optional
 argument REPLACE non-nil means that this item will replace the
 front of the history ring, rather than being added to the list."
   (let ((address (car gopher-history-ring)))
@@ -410,8 +430,8 @@ front of the history ring, rather than being added to the list."
 (defun gopher-history (&optional step)
   "Walk back through gopher's history.
 
-With optional argument STEP, an integer, go that many steps. If
-STEP is negative, move forward through the history. In case the
+With optional argument STEP, an integer, go that many steps.  If
+STEP is negative, move forward through the history.  In case the
 TLS mode is different for this history item, bind it locally
 without changing the global mode."
   (interactive "p")
@@ -436,6 +456,7 @@ If STEP is negative, move backward through the history"
   (gopher-history step))
 
 (defun gopher-define-keymaps ()
+  "Define keys in ‘gopher-mode-map’."
   (setq gopher-mode-map (make-sparse-keymap))
   (define-key gopher-mode-map "\r" 'gopher-goto-url-at-point)
   (define-key gopher-mode-map "n" 'gopher-next-line)
@@ -458,6 +479,7 @@ If STEP is negative, move backward through the history"
 (gopher-define-keymaps)
 
 (defun gopher-kill-address-at-point ()
+  "Kill the address at point, properly combining URL properties."
   (interactive)
   (move-beginning-of-line nil)
   (let* ((properties (text-properties-at (point)))

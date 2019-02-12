@@ -384,10 +384,10 @@ Unreliable, e.g. foo.com:70/1/bar becomes foo.com:70/1/, which is useless."
 With optional argument REVERSE, move the cursor to the previous line instead."
     `(defun ,(intern (concat "gopher-" (symbol-name (if reverse 'previous 'next)) "-" (symbol-name content-type))) ()
        (interactive)
-       (if reverse (forward-line -1) (forward-line))
+       (if ,reverse (forward-line -1) (forward-line))
        (move-beginning-of-line nil)
        (while (not (eq ',content-type (gopher-get-content-type (text-properties-at (point)))))
-	 (if reverse (forward-line -1) (forward-line)))))
+	 (if ,reverse (forward-line -1) (forward-line)))))
 
 (defun gopher-history-current-item (n &optional do-not-move)
   "Rotate the gopher history by N places, and then return that item.

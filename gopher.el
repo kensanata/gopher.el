@@ -27,16 +27,18 @@
 
 ;; gopher.el allows you to navigate Gopher servers.
 
-;; "M-x gopher" prompts you for an address. <TAB> and <M-TAB> navigate
+;; "M-x gopher" prompts you for an address.  <TAB> and <M-TAB> navigate
 ;; between links on a directory listing, while <[> and <]> navigate
-;; between text documents. <RET> opens the link at the cursor's
-;; position. You can navigate up through the directory tree with <u>.
+;; between text documents.  <RET> opens the link at the cursor's
+;; position.  You can navigate up through the directory tree with <u>.
 ;;
-;; There is primitive history support. <B> navigates backwards
+;; There is primitive history support.  <B> navigates backwards
 ;; and <F> forwards through the history.
 
 (require 'cl-lib)
 (require 'shr)
+
+;;; Code:
 
 (defconst gopher-available-content-types
   '(("0" . plain-text)
@@ -85,12 +87,16 @@ The CONTENT-TYPE t is the default when no match is found.")
   :group 'gopher)
 
 (defun gopher-get-matching (function content-type)
+  "Return a FUNCTION specific to handling CONTENT-TYPE.
+
+Function is either 'sentinel' or 'filter'."
   (let ((name (intern (concat "gopher-" function "-" (symbol-name content-type)))))
     (if (fboundp name)
         name
       (intern (concat "gopher-" function)))))
 
 (defun gopher-refresh-current-address ()
+  "Refreshe the current gopher URL."
   (interactive)
   (gopher-goto-url (nth 0 gopher-current-address)
                    (nth 1 gopher-current-address)
@@ -98,18 +104,21 @@ The CONTENT-TYPE t is the default when no match is found.")
                    nil nil t))
 
 (defun gopher-get-content-type (line-data)
+  "Return the content type of the LINE-DATA."
   (let ((content-type (assoc (cl-getf line-data :item-type) gopher-available-content-types)))
     (if content-type
         (cdr content-type)
       nil)))
 
 (defun gopher-get-face (content-type)
+  "Return the face associated with CONTENT-TYPE."
   (let ((face (assoc content-type gopher-faces)))
     (if face
         (cdr face)
       nil)))
 
 (defun gopher (address)
+  "Launch the Gopher browser, asking the user for ADDRESS to nagivate to."
   (interactive "MGopher URL: ")
   (let* ((split-address (split-string (replace-regexp-in-string "^gopher:\/\/" "" address) "/"))
          (split-url (split-string (car split-address) ":"))
@@ -122,6 +131,10 @@ The CONTENT-TYPE t is the default when no match is found.")
 
 (defun gopher-goto-url (&optional hostname port selector content-type
                                   search-argument no-history)
+  "Go to the URL described by the arguments.
+HOSTNAME, PORT, SELECTOR, and CONTENT-TYPE all represent their expected URI
+parts.  SEARCH-ARGUMENT is passed to the gopher URL.  If NO-HISTORY
+is true, this URL is not added to the history stack."
   (interactive)
   (if (get-buffer gopher-buffer-name)
       (kill-buffer gopher-buffer-name))
@@ -150,12 +163,16 @@ The CONTENT-TYPE t is the default when no match is found.")
   nil " TLS" :global t :require 'gopher)
 
 (defun gopher-prepare-request (selector search-argument)
+  "Construct a well-formed Gopher request from SELECTOR and SEARCH-ARGUMENT, if available."
   (cond
    ((and selector search-argument) (format "%s\t%s\r\n" selector search-argument))
    (selector (format "%s\r\n" selector))
    (t "\r\n")))
 
 (defun gopher-prepare-buffer (hostname port selector)
+  "Prepare a buffer for rendering a Gopher response.
+The metadata of the request, specifically HOSTNAME, PORT, and
+SELECTOR, are set buffer-locally."
   (set-window-buffer (selected-window) gopher-buffer-name)
   (with-current-buffer gopher-buffer-name
     (gopher-mode)
@@ -165,6 +182,8 @@ The CONTENT-TYPE t is the default when no match is found.")
     (insert "\n\n")))
 
 (defun gopher-format-address (address)
+  "Return a properly formatted Gopher address.
+ADDRESS is a list of (HOSTNAME PORT SELECTOR)."
   (let ((hostname (nth 0 address))
         (port (nth 1 address))
         (selector (nth 2 address)))
@@ -179,6 +198,8 @@ The CONTENT-TYPE t is the default when no match is found.")
       (format "%s:%s" hostname port)))))
 
 (defun gopher-process-line (line)
+  "Split the response LINE into its components.
+Return a list of these components keyed by name."
   (let* ((lineparts (split-string line "\t"))
          (item-type (substring (nth 0 lineparts) 0 1))
          (display-string (substring (nth 0 lineparts) 1))
@@ -192,6 +213,8 @@ The CONTENT-TYPE t is the default when no match is found.")
           :port port)))
 
 (defun gopher-filter (proc string)
+  "Process filter for the Gopher response data STRING.
+Insert straight into the buffer.  PROC is the parent process."
   (with-current-buffer gopher-buffer-name
     (insert string)))
 
@@ -202,18 +225,25 @@ The CONTENT-TYPE t is the default when no match is found.")
   (aset buffer-display-table ?\^M []))
 
 (defun gopher-filter-gif (proc string)
+  "Process filter for GIF data from STRING.
+Continue concatenating.  PROC is the parent process."
   (with-current-buffer gopher-buffer-name
     (setq gopher-current-data (concat gopher-current-data string))))
 
 (defun gopher-filter-generic-image (proc string)
+  "Process filter for generic image data from STRING.
+Continue concatenating.  PROC is the parent process."
   (with-current-buffer gopher-buffer-name
     (setq gopher-current-data (concat gopher-current-data string))))
 
 (defun gopher-filter-directory-listing (proc string)
+  "Process filter for a directory listing from STRING.
+Continue concatenating.  PROC is the parent process."
   (with-current-buffer gopher-buffer-name
     (setq gopher-current-data (concat gopher-current-data string))))
 
 (defun gopher-display-line (line)
+  "Render the given LINE in the browser buffer."
   (if (or
        (zerop (length line))
        (string-match "^\.$" line))
@@ -223,6 +253,7 @@ The CONTENT-TYPE t is the default when no match is found.")
       (concat indent (gopher-format-line line-data) "\n"))))
 
 (defun gopher-format-line (line-data)
+  "Format LINE-DATA properly."
   (let ((content-type (gopher-get-content-type line-data)))
     (if (and content-type (gopher-get-face content-type))
         (propertize (cl-getf line-data :display-string)
@@ -347,7 +378,7 @@ If N is zero, does nothing.
 If optional argument DO-NOT-MOVE is non-nil, don't actually
 move the remembered point in history, just navigate to that
 location."
-  (or gopher-history-ring (error "History list is empy."))
+  (or gopher-history-ring (error "History list is empty"))
   (let ((Nth-history-element
          (nthcdr (mod (- n (length gopher-history-ring-pointer))
                       (length gopher-history-ring))

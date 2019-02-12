@@ -365,9 +365,6 @@ MSG is the status returned by the process, PROC."
 (defvar gopher-current-data nil)
 (defvar gopher-current-address nil)
 
-(defalias 'gopher-next-line 'next-line)
-(defalias 'gopher-previous-line 'previous-line)
-
 (defun gopher-pop-last (list)
   "Pop the last item from LIST."
   (cl-remove-if (lambda (x) t) list :count 1 :from-end t))
@@ -382,14 +379,15 @@ Unreliable, e.g. foo.com:70/1/bar becomes foo.com:70/1/, which is useless."
   (interactive)
   (gopher (w3m-anchor)))
 
-(defmacro gopher-navigate (direction content-type)
-  "Move the cursor to the next (or previous depending on DIRECTION) line with the CONTENT-TYPE."
-  `(defun ,(intern (concat "gopher-" (symbol-name direction) "-" (symbol-name content-type))) ()
-     (interactive)
-     (,direction)
-     (move-beginning-of-line nil)
-     (while (not (eq ',content-type (gopher-get-content-type (text-properties-at (point)))))
-       (,direction))))
+(defmacro gopher-navigate (content-type &optional reverse)
+  "Move the cursor to the next line with the CONTENT-TYPE.
+With optional argument REVERSE, move the cursor to the previous line instead."
+    `(defun ,(intern (concat "gopher-" (symbol-name (if reverse 'previous 'next)) "-" (symbol-name content-type))) ()
+       (interactive)
+       (if reverse (forward-line -1) (forward-line))
+       (move-beginning-of-line nil)
+       (while (not (eq ',content-type (gopher-get-content-type (text-properties-at (point)))))
+	 (if reverse (forward-line -1) (forward-line)))))
 
 (defun gopher-history-current-item (n &optional do-not-move)
   "Rotate the gopher history by N places, and then return that item.
@@ -459,12 +457,12 @@ If STEP is negative, move backward through the history"
   "Define keys in ‘gopher-mode-map’."
   (setq gopher-mode-map (make-sparse-keymap))
   (define-key gopher-mode-map "\r" 'gopher-goto-url-at-point)
-  (define-key gopher-mode-map "n" 'gopher-next-line)
-  (define-key gopher-mode-map "p" 'gopher-previous-line)
-  (define-key gopher-mode-map "\t" (gopher-navigate next-line directory-listing))
-  (define-key gopher-mode-map "\M-\t" (gopher-navigate previous-line directory-listing))
-  (define-key gopher-mode-map "]" (gopher-navigate next-line plain-text))
-  (define-key gopher-mode-map "[" (gopher-navigate previous-line plain-text))
+  (define-key gopher-mode-map "n" (lambda () (interactive) (forward-line)))
+  (define-key gopher-mode-map "p" (lambda () (interactive) (forward-line -1)))
+  (define-key gopher-mode-map "\t" (gopher-navigate directory-listing))
+  (define-key gopher-mode-map "\M-\t" (gopher-navigate directory-listing t))
+  (define-key gopher-mode-map "]" (gopher-navigate plain-text))
+  (define-key gopher-mode-map "[" (gopher-navigate plain-text t))
   (define-key gopher-mode-map "u" 'gopher-goto-parent)
   (define-key gopher-mode-map "r" 'gopher-refresh-current-address)
   (define-key gopher-mode-map "B" 'gopher-history-backwards)

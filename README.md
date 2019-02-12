@@ -42,7 +42,7 @@ the browsing history, respectively.
 
 ## Miscellaneous
 
-It includes a function, `w3m-open-this-url-in-gopher`, which you may
+It includes a function, `gopher-open-w3m-url`, which you may
 use to open Gopher links in w3m.
 
 ## Contributing

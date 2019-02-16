@@ -93,13 +93,17 @@ Function is either 'sentinel' or 'filter'."
         name
       (intern (concat "gopher-" function)))))
 
+(defun gopher-goto-address (address)
+  "Go to the gopher.el ADDRESS."
+  (gopher-goto-url (nth 0 address)
+                   (nth 1 address)
+                   (nth 2 address)
+                   nil nil t))
+
 (defun gopher-refresh-current-address ()
   "Refreshe the current gopher URL."
   (interactive)
-  (gopher-goto-url (nth 0 gopher-current-address)
-                   (nth 1 gopher-current-address)
-                   (nth 2 gopher-current-address)
-                   nil nil t))
+  (gopher-goto-address gopher-current-address))
 
 (defun gopher-get-content-type (line-data)
   "Return the content type of the LINE-DATA."
@@ -369,9 +373,21 @@ MSG is the status returned by the process, PROC."
                      (cl-getf properties :selector)
                      content-type search-argument)))
 
+(defun gopher-bookmark-handler (record)
+  "Go to a gopher bookmark RECORD."
+  (gopher-goto-address (bookmark-prop-get record 'address))
+  (switch-to-buffer gopher-buffer-name))
+
+(defun gopher-bookmark-make-record ()
+  "Return a bookmark record for the current gopher page."
+  `((address . ,gopher-current-address)
+    (location . ,(gopher-format-address gopher-current-address))
+    (handler . gopher-bookmark-handler)))
+
 (define-derived-mode gopher-mode fundamental-mode "Gopher"
   (set (make-local-variable 'gopher-current-data) nil)
-  (set (make-local-variable 'gopher-current-address) nil))
+  (set (make-local-variable 'gopher-current-address) nil)
+  (set (make-local-variable 'bookmark-make-record-function) #'gopher-bookmark-make-record))
 
 (defvar gopher-current-data nil)
 (defvar gopher-current-address nil)

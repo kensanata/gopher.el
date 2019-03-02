@@ -78,9 +78,6 @@ The CONTENT-TYPE t is the default when no match is found.")
 (defvar gopher-history-ring nil
   "List of URLs visited in gopher.")
 
-(defvar gopher-history-ring-pointer nil
-  "The tail of the gopher history ring, whose car is the last page visited.")
-
 (defcustom gopher-history-ring-max 60
   "Maximum length of gopher history ring before oldest elements are thrown away."
   :type 'integer
@@ -398,11 +395,9 @@ move the remembered point in history, just navigate to that
 location."
   (or gopher-history-ring (error "History list is empty"))
   (let ((Nth-history-element
-         (nthcdr (mod (- n (length gopher-history-ring-pointer))
-                      (length gopher-history-ring))
-                 gopher-history-ring)))
+         (nthcdr n gopher-history-ring)))
     (unless do-not-move
-      (setq gopher-history-ring-pointer Nth-history-element))
+      (setq gopher-history-ring Nth-history-element))
     (car Nth-history-element)))
 
 (defun gopher-history-new (hostname port selector type &optional replace)
@@ -422,8 +417,7 @@ front of the history ring, rather than being added to the list."
       (if (> (length gopher-history-ring)
              gopher-history-ring-max)
           (setcdr (nthcdr (1- gopher-history-ring-max)
-                          gopher-history-ring) nil)))
-    (setq gopher-history-ring-pointer gopher-history-ring)))
+                          gopher-history-ring) nil)))))
 
 (defun gopher-history (&optional step)
   "Walk back through gopher's history.

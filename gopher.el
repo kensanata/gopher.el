@@ -70,6 +70,7 @@ The CONTENT-TYPE t is the default when no match is found.")
     (write . font-lock-warning-face)))
 
 (defvar gopher-buffer-name "*gopher*")
+(defvar gopher-back-buffer-name "*gopher-back-buffer*")
 
 (defgroup gopher nil
   "Gopher server navigation"
@@ -136,27 +137,33 @@ HOSTNAME, PORT, SELECTOR, and CONTENT-TYPE all represent their expected URI
 parts.  SEARCH-ARGUMENT is passed to the gopher URL.  If NO-HISTORY
 is true, this URL is not added to the history stack."
   (interactive)
-  (if (get-buffer gopher-buffer-name)
-      (kill-buffer gopher-buffer-name))
+  (if (get-buffer gopher-back-buffer-name)
+      (kill-buffer gopher-back-buffer-name))
   (if (not content-type)
       (setq content-type 'directory-listing))
   (if (not port)
       (setq port "70"))
   (unless no-history (gopher-history-new hostname port selector gopher-tls-mode))
-  (let* ((args (append (list
-			"gopher"
-			(get-buffer-create gopher-buffer-name)
-			hostname
-			(string-to-number port)
-			:type (if gopher-tls-mode 'tls 'plain))))
-	 (process (apply 'open-network-stream args)))
-    (set-process-sentinel process (gopher-get-matching "sentinel" content-type))
-    (set-process-filter process (gopher-get-matching "filter" content-type))
-    (apply 'set-process-coding-system process
-	   (cdr (or (assoc content-type gopher-coding)
-		    (assoc t gopher-coding))))
-    (process-send-string process (gopher-prepare-request selector search-argument)))
-  (gopher-prepare-buffer hostname port selector))
+  (condition-case nil
+      (progn
+        (let* ((args (append (list
+			                  "gopher"
+			                  (get-buffer-create gopher-back-buffer-name)
+			                  hostname
+			                  (string-to-number port)
+			                  :type (if gopher-tls-mode 'tls 'plain))))
+	           (process (apply 'open-network-stream args)))
+          (set-process-sentinel process (gopher-get-matching "sentinel" content-type))
+          (set-process-filter process (gopher-get-matching "filter" content-type))
+          (apply 'set-process-coding-system process
+	             (cdr (or (assoc content-type gopher-coding)
+		                  (assoc t gopher-coding))))
+          (process-send-string process (gopher-prepare-request selector search-argument)))
+        (gopher-prepare-buffer hostname port selector)
+        (gopher-back-buffer-swap))
+    (error
+     (message "failed to connect")
+     (kill-buffer gopher-back-buffer-name))))
 
 (define-minor-mode gopher-tls-mode
   "Toggle TLS for Gopher."
@@ -170,16 +177,23 @@ is true, this URL is not added to the history stack."
    (t "\r\n")))
 
 (defun gopher-prepare-buffer (hostname port selector)
-  "Prepare a buffer for rendering a Gopher response.
+  "Prepare the back-buffer for rendering a Gopher response.
 The metadata of the request, specifically HOSTNAME, PORT, and
 SELECTOR, are set buffer-locally."
-  (set-window-buffer (selected-window) gopher-buffer-name)
-  (with-current-buffer gopher-buffer-name
+  (with-current-buffer gopher-back-buffer-name
     (gopher-mode)
     (setq gopher-current-address (list hostname port selector)
           gopher-current-data nil
           line-spacing 3)
     (insert "\n\n")))
+
+(defun gopher-back-buffer-swap ()
+  "Swap the back buffer to become the main buffer."
+  (if (get-buffer gopher-buffer-name)
+      (kill-buffer gopher-buffer-name))
+  (with-current-buffer gopher-back-buffer-name
+    (rename-buffer gopher-buffer-name))
+  (set-window-buffer (selected-window) gopher-buffer-name))
 
 (defun gopher-format-address (address)
   "Return a properly formatted Gopher address.

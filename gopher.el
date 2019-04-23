@@ -37,6 +37,7 @@
 
 (require 'cl-lib)
 (require 'shr)
+(require 'w3m)
 
 ;;; Code:
 
@@ -101,7 +102,7 @@ Function is either 'sentinel' or 'filter'."
                    nil nil t))
 
 (defun gopher-refresh-current-address ()
-  "Refreshe the current gopher URL."
+  "Refresh the current gopher URL."
   (interactive)
   (gopher-goto-address gopher-current-address))
 
@@ -120,7 +121,7 @@ Function is either 'sentinel' or 'filter'."
       nil)))
 
 (defun gopher (address)
-  "Launch the Gopher browser, asking the user for ADDRESS to nagivate to."
+  "Launch the Gopher browser, asking the user for ADDRESS to navigate to."
   (interactive "MGopher URL: ")
   (let* ((split-address (split-string (replace-regexp-in-string "^gopher:\/\/" "" address) "/"))
          (split-url (split-string (car split-address) ":"))
@@ -148,17 +149,17 @@ is true, this URL is not added to the history stack."
   (condition-case nil
       (progn
         (let* ((args (append (list
-			                  "gopher"
-			                  (get-buffer-create gopher-back-buffer-name)
-			                  hostname
-			                  (string-to-number port)
-			                  :type (if gopher-tls-mode 'tls 'plain))))
-	           (process (apply 'open-network-stream args)))
+			      "gopher"
+			      (get-buffer-create gopher-back-buffer-name)
+			      hostname
+			      (string-to-number port)
+			      :type (if gopher-tls-mode 'tls 'plain))))
+	       (process (apply 'open-network-stream args)))
           (set-process-sentinel process (gopher-get-matching "sentinel" content-type))
           (set-process-filter process (gopher-get-matching "filter" content-type))
           (apply 'set-process-coding-system process
-	             (cdr (or (assoc content-type gopher-coding)
-		                  (assoc t gopher-coding))))
+	         (cdr (or (assoc content-type gopher-coding)
+		          (assoc t gopher-coding))))
           (process-send-string process (gopher-prepare-request selector search-argument)))
         (gopher-prepare-buffer hostname port selector)
         (gopher-back-buffer-swap))
@@ -346,7 +347,7 @@ MSG is the status returned by the process, PROC."
   (interactive)
   (move-beginning-of-line nil)
   (let* ((properties (text-properties-at (point)))
-        (content-type (gopher-get-content-type properties)))
+         (content-type (gopher-get-content-type properties)))
     (if (eq content-type 'search-query)
         (call-interactively 'gopher-goto-search)
       (gopher-goto-url (cl-getf properties :hostname)
@@ -361,7 +362,7 @@ MSG is the status returned by the process, PROC."
          (hostname (nth 0 address))
          (port (nth 1 address))
          (selector (nth 2 address)))
-  (gopher-goto-url hostname port (gopher-selector-parent selector))))
+    (gopher-goto-url hostname port (gopher-selector-parent selector))))
 
 (defun gopher-goto-search (search-argument)
   "Make a request to the server with the string SEARCH-ARGUMENT."
@@ -409,16 +410,16 @@ Unreliable, e.g. foo.com:70/1/bar becomes foo.com:70/1/, which is useless."
 (defmacro gopher-navigate (content-type &optional reverse)
   "Move the cursor to the next line with the CONTENT-TYPE.
 With optional argument REVERSE, move the cursor to the previous line instead."
-    `(defun ,(intern (concat "gopher-" (symbol-name (if reverse 'previous 'next)) "-" (symbol-name content-type))) ()
-       (interactive)
-       (forward-line ,(if reverse -1 1))
-       (move-beginning-of-line nil)
-       (while (and (not (= (line-number-at-pos)
-                           (line-number-at-pos ,(if reverse
-                                                    `(point-min)
-                                                  `(point-max)))))
-                   (not (eq ',content-type (gopher-get-content-type (text-properties-at (point))))))
-         (forward-line ,(if reverse -1 1)))))
+  `(defun ,(intern (concat "gopher-" (symbol-name (if reverse 'previous 'next)) "-" (symbol-name content-type))) ()
+     (interactive)
+     (forward-line ,(if reverse -1 1))
+     (move-beginning-of-line nil)
+     (while (and (not (= (line-number-at-pos)
+                         (line-number-at-pos ,(if reverse
+                                                  `(point-min)
+                                                `(point-max)))))
+                 (not (eq ',content-type (gopher-get-content-type (text-properties-at (point))))))
+       (forward-line ,(if reverse -1 1)))))
 
 (defun gopher-history-current-item (n &optional do-not-move)
   "Rotate the gopher history by N places, and then return that item.

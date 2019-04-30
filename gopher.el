@@ -347,7 +347,7 @@ MSG is the status returned by the process, PROC."
   (let* ((properties (text-properties-at (point)))
          (content-type (gopher-get-content-type properties)))
     (cond ((eq content-type 'html)
-           (browse-url (replace-regexp-in-string "\\(/\\)*URL:" "" (cl-getf properties :selector))))
+           (browse-url (replace-regexp-in-string "^/?URL:" "" (cl-getf properties :selector))))
           ((eq content-type 'search-query)
            (call-interactively 'gopher-goto-search))
           (t (gopher-goto-url (cl-getf properties :hostname)

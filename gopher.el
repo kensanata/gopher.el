@@ -19,6 +19,7 @@
 ;;         and the gopher.el authors (see AUTHORS.org)
 ;; URL: http://github.com/ardekantur/gopher.el
 ;; Package-Version: 20190211.1742
+;; Package-Requires: ((emacs "24.4") (w3m "0"))
 ;; Version: 0.0.2
 
 ;; This file is not part of GNU Emacs.
